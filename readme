@@ -1,0 +1,145 @@
+#
+# lp2 script collection
+#
+# 
+# (c) 2012, Ondics GmbH | githubler@ondics.de | www.ondics.de
+#
+
+1. description
+2. installation
+3. device detection in the local network
+4. the scripts
+5. examples of full command chains
+6. licensing
+7. integration into nagios network management software
+
+
+1. description
+==============
+the "l2p script collection" provides some useful
+scripts to communicate with l2p devices.
+l2p is the "lufft logger protocol" developed by
+G. Lufft Mess- und Regeltechnik GmbH in Germany
+(www.lufft.com), a producer of climatological
+precision measuring equipment.
+
+scripts provided:
+l2p-crc16                       calculating crc16-checksums
+l2p-datatype-convert.gawk       converting datatypes to decimal values
+l2p-examples                    some example hex strings for dry testing (without a device)
+l2p-frame                       generating frames for requests
+l2p-result                      analyzing results from requests
+test                            test cases for testing purposes
+
+
+2. installation
+===============
+
+prerequisites are:
+- gawk has to be installed
+- scripts are written in bash
+- nc or netcat is used for connecting the l2p-device
+- ngrep to detect l2p devices in the local network
+
+3. device detection in the local network
+========================================
+e.g. for opus 20 thip device:
+first initalize device with button on the backside (lan init).
+then detect udp broadcast with:
+> ngrep '' 'udp and port 52010'
+attention: ngrep requires root to run, so as user 
+> sudo ngrep '' 'udp and port 52010'
+will work better
+
+the result looks like:
+#...
+# U 192.168.1.154:52010 -> 255.255.255.255:52005
+#...
+
+the ip address of this device is 192.168.1.154
+
+alternatively the lufft smartgraph3 software can be used
+(for free download check www.lufft.com)
+
+4. the scripts
+==============
+
+l2p-crc16:
+bash-skript to calculate CRC-16 CCITT checksum.
+output is written in ascii to stdout by default.
+input comes as script argument.
+usage example:
+> ./l2p-crc16 "30 31 32 33 34 35 36 37"
+
+l2p-frame: 
+bash-skript to build a full L2P-Frame from a given l2p command,
+output is written in ascii to stdout by default.
+e.g. "23 10" to get the device status. 
+usage example for request "23 10":
+> ./l2p-frame "23 10"
+
+l2p-result: 
+bash-script to analyze result from device given in l2p format.
+output is written in ascii to stdout by default.
+input comes from stdin by default.
+usage example for request "31 10 16":
+>  cat ./l2p-examples/result_31_10_16_kanaele.hex | ./l2p-result --ascii -v
+shows all channels available (--ascii is for ascii input)
+
+l2p-datatype-convert.gawk:
+gawk-script to convert hex-values to ascii strings with
+their decimal equivalents using the ieee 754 procedure.
+all l2p data types are supported in big or little endian.
+float conversion uses ieee 754 spec.
+usage example: echo "BE FLOAT 43478a3d"| gawk -f l2p-datatype-convert.gawk
+gives 199.539993 as result
+
+files in ./l2p-examples:
+the example files *.hex are ascii hex strings
+the example files *.dat are binary hex strings
+they can be used to play with the scripts without using a device
+
+
+./test:
+bash-script with several test cases to demonstrate script usage
+usage example:
+>  ./test 4
+attention: use ./ as path because of unix test-command!
+
+
+
+5. examples of full command chains
+==================================
+to retrieve a channel list, use:
+> echo "31 10 16"| ./l2p-frame -x | nc -i 2 -q 1  192.168.1.154 52015 | ./l2p-result
+gives a list with all channels available.
+
+to retrieve one channel (e.g. current air pressure, channel 300=0x012c), use:
+> echo "23 10 2c 01"| ./l2p-frame -x | nc -i 2 -q 1  192.168.1.154 52015 | ./l2p-result
+gives 969.470032 as result
+
+
+6. licensing
+============
+# The Scripts are dual licensed under commercial and GPL Version 3
+# licenses (except l2p-crc16. For commercial license conditions please
+# contact us.
+# As free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+
+7. integration into nagios network management software
+======================================================
+there is an nagios plugin available to integrate any l2p device
+in your network management environment.
+see on github project ...
+
+
+hav fun!
+guthubler@ondics.de

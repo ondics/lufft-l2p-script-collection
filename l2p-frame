@@ -1,0 +1,124 @@
+#!/bin/bash
+#
+# ./l2p-frame
+#
+# L2P Frame Generator
+#
+# to get help, use ./l2p-frame -h
+#
+# (c) 2012, Ondics GmbH | githubler@ondics.de | www.ondics.de
+#
+# This program is dual licensed under commercial and GPL Version 3
+# licenses. For commercial license conditions please contact us.
+# As free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+
+
+self="${0##*/}"
+install_dir="/usr/share/lufft-l2p-script-collection"
+
+# read local environment
+if [ -e "$install_dir/local_env" ];then
+    source "$install_dir/local_env"
+    PATH="$PATH:$dir_scripts"
+else
+    echo "error: install_dir not set correctly"
+    exit 1
+fi
+
+
+
+l2p-laenge()
+(
+    local input="$1"
+    local len
+    # laenge nutzdaten
+    ((len = ( ${#input} + 1 ) / 3 ))
+    printf "%02x" "$len"
+)
+
+
+output_hex()
+(
+    local input="$1"
+    local i
+    for ((i=0; i<${#input}; i+=3)); do
+        (( c= 16*${input:i:1} + ${input:i+1:1} ))
+        printf "\\x${input:i:2}"
+    done
+)
+
+
+error() {
+	local msg="$1"
+	printf "%s: %s\nTry '%s --help' for more information\n" \
+	       "$self" "$msg" "$self" >&2
+	exit 1
+}
+usage() {
+	printf "Builds full L2P Frame from Data\n\n"
+	printf "Usage: %s [-v] [-l] [-x] [-h] [<data>]\n\n" "$self"
+	printf "Data format is two hex digits with white space, \n"
+        printf "e.g. 00 01 02 03 04. If no <data> ist given or -, reads from stdin.\n"
+        printf "Options:\n"
+        printf "    -v | --verbose   talk about what's going on\n"
+        printf "    -x | --hex       output in hex-mode, default is ascii-mode\n"
+        printf "    -l | --lang      long frame, default is normal frame (not impl.yet)\n"        
+        printf "    -h | --help      this help\n"
+	exit
+}
+
+# default values
+verbose=0
+frametype="normal"                 
+outputmode="ascii"
+while [[ $# -gt 0 ]]; do
+	arg="$1"; shift	
+	case "$arg" in
+	-h|--help  ) usage                              ;;
+	-l|--lang  ) frametype="lang"                   ;;
+        -x|--hex   ) outputmode="hex"                   ;;
+        -v|--verbose) verbose=1                         ;;
+	--         ) string="$1"                ; break ;;
+	-          ) string=$( cat )   ; done=1 ; break ;;
+	-*         ) error "unrecognized option '$arg'" ;;
+	*          ) string="$arg"     ; done=1 ; break ;;
+	esac
+done
+
+[[ "$done" || "$string" ]] || string=$( cat )
+
+# Expected command-line behaviour table:
+# <none>    => str = stdin
+# -         => str = stdin
+# something => str = something
+# -- <none> => str = stdin
+# -- someth => str = something
+
+[[ "$string" ]] || error "missing string"
+
+daten="$string"
+
+[[ "$verbose" == 1 ]] && printf "Building L2P-Frame:\n" > /dev/stderr
+[[ "$verbose" == 1 ]] && printf "Payload=[%s]\n" "$daten" > /dev/stderr
+
+frame="01 10 00 00 00 00"
+frame="$frame $(l2p-laenge "$daten") 02 $daten 03"
+frame="$frame $($dir_scripts/l2p-crc16 "$frame")"
+frame="$frame 04"
+
+[[ "$verbose" == 1 ]] && printf "Frame=[%s]\n" "$frame" > /dev/stderr
+
+if [ $outputmode == "ascii" ]; then
+    printf "$frame"
+else
+    output_hex "$frame"
+fi
+    

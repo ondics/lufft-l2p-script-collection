@@ -1,0 +1,73 @@
+#!/bin/bash
+#
+# ./test
+#
+# 7 test cases for l2p scripts
+#
+# to get help, use ./l2p-result -h
+# 
+# (c) 2012, Ondics GmbH | githubler@ondics.de | www.ondics.de
+
+
+install_dir="/usr/share/lufft-l2p-script-collection"
+
+# read local environment
+if [ -e "$install_dir/local_env" ];then
+    source "$install_dir/local_env"
+    PATH="$PATH:$dir_scripts"
+else
+    echo "error: install_dir not set correctly"
+    exit 1
+fi
+
+if [[ $# == 0 ]]; then
+    echo "fehler: testfall fehlt"
+    exit 1
+fi
+
+echo "ip_addr=$ip_addr"
+
+( cd $dir_scripts;
+
+case "$1" in
+    1)  echo "opus20 im netzwerk auffinden"
+        sudo ngrep '' 'udp and port 52010'
+        ;;
+    2)  echo "nutzdaten '26 10' als ascii string ausgeben"
+        FRAME=$(echo "26 10" | ./l2p-frame) 
+        echo "frame 1 => $FRAME"
+        ;;
+    3)  echo 'nutzdaten "26 10" in frame einpacken und als hexdump ausgeben'
+        echo -n "frame 2 => "
+        echo "26 10" | l2p-frame -x | hexdump -e '16/1 "%02X "'
+        ;;
+    4)  echo 'nutzdaten "26 10" (letzter status) an opus 20 senden und ergebnis als hexdump ausgeben'
+        echo "26 10" | l2p-frame -x | nc -i 2 -q 1  $ip_addr 52015 | hexdump -C
+        ;;
+    5)  echo 'nutzdaten "26 10" (letzter status) an opus 20 senden und ergebnis interpretieren'
+        echo "26 10" | l2p-frame -x | nc -i 2 -q 1  $ip_addr 52015 | l2p-result -v
+        ;;
+    6)  echo "abfrage, welche kanäle zur verfügung stehen (Geräteinfo, S.17)"
+        echo "31 10 16" | l2p-frame -x | nc -i 2 -q 1  $ip_addr 52015 | l2p-result -v
+        ;;
+    7)  echo "online-datenabfrage kanal 1020 0x2724 Spannung"
+        echo "23 10 24 27" | l2p-frame -x | nc -i 2 -q 1  $ip_addr 52015 | l2p-result -v
+        ;;
+    8)  echo "online-datenabfrage kanal 200 0x00c8 aktuelle relative Feuchte"
+        echo "23 10 c8 00" | l2p-frame -x | nc -i 2 -q 1  $ip_addr 52015 | l2p-result -v
+        ;;
+    9)  echo "online-datenabfrage kanal 300 0x012c aktueller Luftdruck"
+        echo "23 10 2c 01" | l2p-frame -x | nc -i 2 -q 1  $ip_addr 52015 | l2p-result -v
+        ;;
+    10) echo "online-datenabfrage kanal 160 0x00A0 durchschn. Temperatur"
+        echo "23 10 A0 00" | l2p-frame -x | nc -i 2 -q 1  $ip_addr 52015 | l2p-result -v
+        ;;
+    11) echo "online-datenabfrage mehrere kanäle (160, 110, 200, 300, 305, 10020)"
+        echo "2F 10 06 a0 00 6e 00 c8 00 2c 01 31 01 24 27" | l2p-frame -x | nc -i 2 -q 1  $ip_addr 52015 | l2p-result -v
+        ;;
+    *)
+        echo "sorry, so weit noch nicht!"
+        ;;
+esac
+
+)
